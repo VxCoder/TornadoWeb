@@ -1,4 +1,4 @@
-FROM redis:3.0
+FROM redis:3.2
 
 MAINTAINER wsb <wsb310@gmail.com>
 

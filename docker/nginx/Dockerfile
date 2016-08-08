@@ -1,4 +1,4 @@
-FROM nginx:1.9
+FROM nginx:1.10
 
 MAINTAINER wsb <wsb310@gmail.com>
 
