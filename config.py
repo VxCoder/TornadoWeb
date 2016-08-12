@@ -15,7 +15,7 @@ Static.Secret = r'02b6d796814c353a1f0370a416018016'
 
 Static.SessionExpires = 1800
 
-Static.AccessControlAllowOrigin = r'*'
+Static.AccessControlAllowOrigin = (r'*',)
 
 ##################################################
 # 线程

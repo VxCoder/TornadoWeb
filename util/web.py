@@ -152,8 +152,9 @@ class RequestBaseHandler(RequestHandler, Utils):
         else:
             
             origin = self.get_header(r'Origin')
+            allow_origin = set(config.Static.AccessControlAllowOrigin)
             
-            if(origin and config.Static.AccessControlAllowOrigin.find(origin) >= 0):
+            if(allow_origin.intersection(set((r'*', origin,)))):
                 self.set_header(r'Access-Control-Allow-Origin', origin)
         
         method = self.get_header(r'Access-Control-Request-Method')
