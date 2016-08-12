@@ -59,6 +59,20 @@ class Utils():
         return [int(temp) for temp in val.split(sep, maxsplit) if temp.strip().isdigit()]
     
     @staticmethod
+    def str_len(value):
+        
+        result = 0
+        
+        for val in value:
+            
+            if(unicodedata.east_asian_width(val) in (r'A',r'F',r'W')):
+                result += 2
+            else:
+                result += 1
+        
+        return result
+    
+    @staticmethod
     def sub_str(value, length, suffix=r'...'):
         
         result = []
