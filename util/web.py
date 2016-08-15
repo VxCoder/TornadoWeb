@@ -54,7 +54,7 @@ class RequestBaseHandler(RequestHandler, Utils):
     @coroutine
     def prepare(self):
         
-        self._transparent()
+        self._payload()
         
         self._cross_domain()
         
@@ -134,14 +134,14 @@ class RequestBaseHandler(RequestHandler, Utils):
         
         return session
     
-    def _transparent(self):
+    def _payload(self):
         
         self.set_header(r'Timestamp', self.timestamp())
         
-        transparent = self.get_header(r'Transparent')
+        payload = self.get_header(r'Payload')
         
-        if(transparent):
-            self.set_header(r'Transparent', transparent)
+        if(payload):
+            self.set_header(r'Payload', payload)
     
     def _cross_domain(self):
         
