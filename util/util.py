@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import OrderedDict
 
 from tornado.log import app_log
-from tornado.gen import sleep, Return
+from tornado.gen import sleep
 from tornado.escape import utf8, to_basestring, json_decode, json_encode
 
 from .struct import Ignore
@@ -34,14 +34,9 @@ class Utils():
     json_decode = staticmethod(json_decode)
     
     @staticmethod
-    def Return(value=None):
+    def Break(msg=None):
         
-        raise Return(value)
-    
-    @staticmethod
-    def Break():
-        
-        raise Ignore()
+        raise Ignore(msg)
     
     @staticmethod
     def today():

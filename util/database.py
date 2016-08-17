@@ -3,7 +3,7 @@
 import config
 
 from tornado.log import app_log
-from tornado.gen import coroutine, Return
+from tornado.gen import coroutine
 from tornado_mysql import pools, connections, cursors, converters
 
 from .struct import Ignore
@@ -370,9 +370,9 @@ class DBPool(pools.Pool, SQLQuery):
 class DBTransaction(pools.Transaction, SQLQuery):
     
     @classmethod
-    def Break(cls):
+    def Break(cls, msg=None):
         
-        raise Ignore()
+        raise Ignore(msg)
     
     def __init__(self, pool, conn, readonly=False):
         
@@ -390,11 +390,7 @@ class DBTransaction(pools.Transaction, SQLQuery):
         
         self.rollback()
         
-        if(args[0] is Return):
-            
-            return False
-        
-        elif(args[0] is Ignore):
+        if(args[0] is Ignore):
             
             return True
             

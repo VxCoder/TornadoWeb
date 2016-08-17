@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from tornado.log import app_log
 
-class Ignore(Exception): pass
+
+class Ignore(Exception):
+    
+    def __init__(self, msg=None):
+        
+        if(msg):
+            app_log.debug(msg)
 
 
 class Dict(dict):

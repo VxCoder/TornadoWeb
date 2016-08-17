@@ -5,12 +5,11 @@ import config
 from tornado.gen import coroutine, Task
 from tornado_redis import Client, ConnectionPool
 
-from .util import Utils
 from .decorator import singleton, catch_error
 
 
 @singleton
-class MCache(Utils):
+class MCachePool():
     
     def __init__(self):
         
@@ -18,14 +17,18 @@ class MCache(Utils):
             
             self.__conn_pool = ConnectionPool(host=config.Static.RedisHost[0], port=config.Static.RedisHost[1], max_connections=config.Static.RedisMaxConn)
         
-    def _get_client(self, key=None):
+    def get_client(self, selected_db=0):
         
-        if(key):
-            selected_db = len(key) % config.Static.RedisBases
-        else:
-            selected_db = 0
+        return MCache(password=config.Static.RedisPasswd, selected_db=selected_db, connection_pool=self.__conn_pool)
+
+
+class MCache():
+    
+    def __init__(self, *args, **kwargs):
         
-        return Client(password=config.Static.RedisPasswd, selected_db=selected_db, connection_pool=self.__conn_pool)
+        with catch_error():
+            
+            self.__client =  Client(*args, **kwargs)
     
     def key(self, key, *args):
         
@@ -44,9 +47,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.expire, key, expire)
+            result = yield Task(self.__client.expire, key, expire)
             
             return result
     
@@ -55,9 +56,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.exists, key)
+            result = yield Task(self.__client.exists, key)
             
             return result
     
@@ -66,9 +65,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.get, key)
+            result = yield Task(self.__client.get, key)
             
             if(result is not None):
                 result = self.pickle_loads(result)
@@ -83,9 +80,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.mget, keys)
+            result = yield Task(self.__client.mget, keys)
             
             if(result):
                 for key, val in enumerate(result):
@@ -104,9 +99,7 @@ class MCache(Utils):
             
             val = self.pickle_dumps(val)
             
-            client = self._get_client()
-            
-            result = yield Task(client.set, key, val, expire)
+            result = yield Task(self.__client.set, key, val, expire)
             
             return result
     
@@ -120,9 +113,7 @@ class MCache(Utils):
             
             val = self.pickle_dumps(val)
             
-            client = self._get_client()
-            
-            result = yield Task(client.set, key, val, expire, only_if_not_exists=True)
+            result = yield Task(self.__client.set, key, val, expire, only_if_not_exists=True)
             
             return result
     
@@ -136,9 +127,7 @@ class MCache(Utils):
             
             val = self.pickle_dumps(val)
             
-            client = self._get_client()
-            
-            result = yield Task(client.set, key, val, expire, only_if_exists=True)
+            result = yield Task(self.__client.set, key, val, expire, only_if_exists=True)
             
             return result
     
@@ -153,9 +142,7 @@ class MCache(Utils):
             for key, val in mapping.items():
                 mapping[key] = self.pickle_dumps(val)
             
-            client = self._get_client()
-            
-            result = yield Task(client.mset, mapping)
+            result = yield Task(self.__client.mset, mapping)
             
             return result
     
@@ -170,9 +157,7 @@ class MCache(Utils):
             for key, val in mapping.items():
                 mapping[key] = self.pickle_dumps(val)
             
-            client = self._get_client()
-            
-            result = yield Task(client.msetnx, mapping)
+            result = yield Task(self.__client.msetnx, mapping)
             
             return result
     
@@ -181,9 +166,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.delete, *keys)
+            result = yield Task(self.__client.delete, *keys)
             
             return result
     
@@ -192,9 +175,7 @@ class MCache(Utils):
         
         with catch_error():
             
-            client = self._get_client()
-            
-            result = yield Task(client.keys, pattern)
+            result = yield Task(self.__client.keys, pattern)
             
             return result
 
