@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import time
-
 from tornado.gen import coroutine
 
 from util.decorator import singleton, catch_error
@@ -27,12 +25,14 @@ class SystemModel(BaseModel):
         
         with catch_error():
             
+            cache = self.get_cache_client()
+            
             ckey = r'system_checkup'
             cval = self.timestamp()
             
-            yield self.set_cache(ckey, cval)
+            yield cache.set(ckey, cval)
             
-            mc_live = (cval == (yield self.get_cache(ckey)))
+            mc_live = (cval == (yield cache.get(ckey)))
         
         return db_live and mc_live
 

@@ -31,7 +31,7 @@ class TuringClient(BaseModel):
             if(response):
                 result = self.json_decode(response)
             
-        self.Return(result)
+        return result
     
     @coroutine
     def chat(self, userid, info):
@@ -43,7 +43,7 @@ class TuringClient(BaseModel):
         response = yield self.__query(aip_url, **params)
         
         if(r'text' in response):
-            self.Return(response[r'text'])
+            return response[r'text']
         elif(r'code' in response):
-            self.Return(r'error {0}'.format(response[r'code']))
+            return r'error {0}'.format(response[r'code'])
 

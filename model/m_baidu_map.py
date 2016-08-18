@@ -26,8 +26,10 @@ class BaiduMapClient(BaseModel):
         
         args = [str(val) for val in sorted(params.items(), key=lambda x:x[0])]
         
-        ckey = self.cache_key(r'baidu_map', url, *args)
-        cval = yield self.get_cache(ckey)
+        cache = self.get_cache_client()
+        
+        ckey = cache.key(r'baidu_map', url, *args)
+        cval = yield cache.get(ckey)
         
         if(cval is None):
             
@@ -40,9 +42,9 @@ class BaiduMapClient(BaseModel):
                 
                 if(response):
                     cval = self.json_decode(response)
-                    self.set_cache(ckey, cval)
+                    cache.set(ckey, cval)
             
-        self.Return(cval)
+        return cval
     
     @coroutine
     def geocoder(self, addr, coor=r'bd09ll', pois=False):
@@ -65,7 +67,7 @@ class BaiduMapClient(BaseModel):
         
         response = yield self.__query(aip_url, **params)
         
-        self.Return(response)
+        return response
     
     @coroutine
     def ip(self, addr, coor=r'bd09ll'):
@@ -78,5 +80,5 @@ class BaiduMapClient(BaseModel):
         
         response = yield self.__query(aip_url, **params)
         
-        self.Return(response)
+        return response
 

@@ -5,7 +5,8 @@ import config
 from tornado.gen import coroutine, Task
 from tornado_redis import Client, ConnectionPool
 
-from .decorator import singleton, catch_error
+from .decorator import singleton
+from .util import Utils
 
 
 @singleton
@@ -13,22 +14,28 @@ class MCachePool():
     
     def __init__(self):
         
-        with catch_error():
-            
-            self.__conn_pool = ConnectionPool(host=config.Static.RedisHost[0], port=config.Static.RedisHost[1], max_connections=config.Static.RedisMaxConn)
+        self.__conn_pool = ConnectionPool(host=config.Static.RedisHost[0], port=config.Static.RedisHost[1], max_connections=config.Static.RedisMaxConn)
+    
+    def __del__(self):
         
+        self.__conn_pool = None
+    
     def get_client(self, selected_db=0):
         
         return MCache(password=config.Static.RedisPasswd, selected_db=selected_db, connection_pool=self.__conn_pool)
 
 
-class MCache():
+class MCache(Utils):
     
     def __init__(self, *args, **kwargs):
         
-        with catch_error():
+        self.__client = Client(*args, **kwargs)
+        
+        self.__expire = config.Static.RedisExpires
+    
+    def __del__(self):
             
-            self.__client =  Client(*args, **kwargs)
+        self.__client = None
     
     def key(self, key, *args):
         
@@ -45,49 +52,41 @@ class MCache():
     @coroutine
     def touch(self, key, expire=0):
         
-        with catch_error():
-            
-            result = yield Task(self.__client.expire, key, expire)
-            
-            return result
+        result = yield Task(self.__client.expire, key, expire)
+        
+        return result
     
     @coroutine
     def has(self, key):
         
-        with catch_error():
-            
-            result = yield Task(self.__client.exists, key)
-            
-            return result
+        result = yield Task(self.__client.exists, key)
+        
+        return result
     
     @coroutine
     def get(self, key):
         
-        with catch_error():
-            
-            result = yield Task(self.__client.get, key)
-            
-            if(result is not None):
-                result = self.pickle_loads(result)
-            
-            return result
+        result = yield Task(self.__client.get, key)
+        
+        if(result is not None):
+            result = self.pickle_loads(result)
+        
+        return result
     
     @coroutine
     def mget(self, *keys):
         
         if(not keys):
-            return False
+            return None
         
-        with catch_error():
-            
-            result = yield Task(self.__client.mget, keys)
-            
-            if(result):
-                for key, val in enumerate(result):
-                    if(val is not None):
-                        result[key] = self.pickle_loads(val)
-            
-            return result
+        result = yield Task(self.__client.mget, keys)
+        
+        if(result):
+            for key, val in enumerate(result):
+                if(val is not None):
+                    result[key] = self.pickle_loads(val)
+        
+        return result
     
     @coroutine
     def set(self, key, val, expire=0):
@@ -95,13 +94,14 @@ class MCache():
         if(val is None):
             return False
         
-        with catch_error():
-            
-            val = self.pickle_dumps(val)
-            
-            result = yield Task(self.__client.set, key, val, expire)
-            
-            return result
+        if(expire == 0):
+            expire = self.__expire
+        
+        val = self.pickle_dumps(val)
+        
+        result = yield Task(self.__client.set, key, val, expire)
+        
+        return result
     
     @coroutine
     def setnx(self, key, val, expire=0):
@@ -109,13 +109,14 @@ class MCache():
         if(val is None):
             return False
         
-        with catch_error():
-            
-            val = self.pickle_dumps(val)
-            
-            result = yield Task(self.__client.set, key, val, expire, only_if_not_exists=True)
-            
-            return result
+        if(expire == 0):
+            expire = self.__expire
+        
+        val = self.pickle_dumps(val)
+        
+        result = yield Task(self.__client.set, key, val, expire, only_if_not_exists=True)
+        
+        return result
     
     @coroutine
     def setxx(self, key, val, expire=0):
@@ -123,13 +124,14 @@ class MCache():
         if(val is None):
             return False
         
-        with catch_error():
-            
-            val = self.pickle_dumps(val)
-            
-            result = yield Task(self.__client.set, key, val, expire, only_if_exists=True)
-            
-            return result
+        if(expire == 0):
+            expire = self.__expire
+        
+        val = self.pickle_dumps(val)
+        
+        result = yield Task(self.__client.set, key, val, expire, only_if_exists=True)
+        
+        return result
     
     @coroutine
     def mset(self, **mapping):
@@ -137,14 +139,12 @@ class MCache():
         if(not mapping):
             return False
         
-        with catch_error():
-            
-            for key, val in mapping.items():
-                mapping[key] = self.pickle_dumps(val)
-            
-            result = yield Task(self.__client.mset, mapping)
-            
-            return result
+        for key, val in mapping.items():
+            mapping[key] = self.pickle_dumps(val)
+        
+        result = yield Task(self.__client.mset, mapping)
+        
+        return result
     
     @coroutine
     def msetnx(self, **mapping):
@@ -152,39 +152,33 @@ class MCache():
         if(not mapping):
             return False
         
-        with catch_error():
-            
-            for key, val in mapping.items():
-                mapping[key] = self.pickle_dumps(val)
-            
-            result = yield Task(self.__client.msetnx, mapping)
-            
-            return result
+        for key, val in mapping.items():
+            mapping[key] = self.pickle_dumps(val)
+        
+        result = yield Task(self.__client.msetnx, mapping)
+        
+        return result
     
     @coroutine
     def delete(self, *keys):
         
-        with catch_error():
-            
-            result = yield Task(self.__client.delete, *keys)
-            
-            return result
+        result = yield Task(self.__client.delete, *keys)
+        
+        return result
     
     @coroutine
     def keys(self, pattern=r'*'):
         
-        with catch_error():
-            
-            result = yield Task(self.__client.keys, pattern)
-            
-            return result
+        result = yield Task(self.__client.keys, pattern)
+        
+        return result
 
 
 class MLock():
     
     def __init__(self, *args):
         
-        self._cache = MCache()
+        self._cache = MCachePool().get_client()
         
         self._lock_tag = self._cache.key(r'threading_lock', args)
         

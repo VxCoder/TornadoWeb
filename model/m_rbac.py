@@ -28,38 +28,40 @@ class RbacModel(BaseModel):
         with catch_error():
             
             if(method not in HttpMethod):
-                self.Return(False)
+                return False
             
             role_purview = yield self.get_role_purview()
             
             if(not role_purview):
-                self.Return(False)
+                return False
             
             if(role_id not in role_purview):
-                self.Return(False)
+                return False
             
             if(module not in role_purview[role_id]):
-                self.Return(False)
+                return False
             
             result = bool(HttpMethod[method] & role_purview[role_id][module])
             
-            self.Return(result)
+            return result
     
     @coroutine
     def get_role_purview(self):
         
         with catch_error():
             
-            ckey = self._mc.key(r'role_purview')
-            cval = yield self.get_cache(ckey)
+            cache = self.get_cache_client()
+            
+            ckey = cache.key(r'role_purview')
+            cval = yield cache.get(ckey)
             
             if(cval is not None):
-                self.Return(cval)
+                return cval
             
             records = yield self._dbs.select(r'rbac_role')
             
             if(records is None):
-                self.Return()
+                return None
             
             role_infos = {}
             
@@ -73,7 +75,7 @@ class RbacModel(BaseModel):
                     if(row[r'role'] in role_infos):
                         role_infos[row[r'role']][row[r'module']] = row[r'purview']
             
-            yield self.set_cache(ckey, role_infos)
+            yield cache.set(ckey, role_infos)
             
-            self.Return(role_infos)
+            return role_infos
 

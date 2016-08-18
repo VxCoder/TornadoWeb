@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from tornado.log import app_log
-from tornado.gen import coroutine, Return
+from tornado.gen import coroutine
 
 
 @coroutine
@@ -9,7 +9,7 @@ def auto_login(request):
     
     app_log.info(r'I am request checker')
     
-    raise Return(True)
+    return True
 
 
 def logger(request):

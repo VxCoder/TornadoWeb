@@ -75,7 +75,7 @@ class qrcode(RequestRbacHandler):
         return self.finish(stream.getvalue())
 
 
-class captcha(RequestRbacHandler):
+class captcha(SocketBaseHandler):
 
     @coroutine
     def get(self):
@@ -83,7 +83,7 @@ class captcha(RequestRbacHandler):
         return self.generate_captcha(120, 50)
 
 
-class geocoder(RequestRbacHandler):
+class geocoder(SocketBaseHandler):
 
     @coroutine
     def get(self):

@@ -13,34 +13,40 @@ class AccountModel(BaseModel):
     @coroutine
     def search(self):
         
+        result = None
+        
         with catch_error():
             
-            ckey = self._mc.key(r'account_infos')
-            cval = yield self.get_cache(ckey)
+            cache = self.get_cache_client()
             
-            if(cval is not None):
-                self.Return(cval)
+            ckey = cache.key(r'account_infos')
+            cval = yield cache.get(ckey)
             
-            records = yield self._dbs.select(r'account', limit=100)
+            if(cval is None):
+                
+                records = yield self._dbs.select(r'account', limit=100)
+                
+                if(records):
+                    
+                    cval = [dict(val) for val in records]
+                    
+                    yield cache.set(ckey, cval)
             
-            if(records is None):
-                self.Return()
+            result = cval
             
-            cval = [dict(val) for val in records]
-            
-            yield self.set_cache(ckey, cval)
-            
-            self.Return(cval)
+        return result
     
     @coroutine
     def register(self, username, password):
+        
+        result = None
         
         with (yield self._dbm.begin()) as trx:
             
             records = yield trx.where(r'account', username=username, rowlock=True)
             
             if(records):
-                self.Return()
+                self.Break()
             
             fields = {
                       r'username': username,
@@ -51,25 +57,29 @@ class AccountModel(BaseModel):
             fields[r'id'] = trx.insert(r'account', **fields)
             
             if(fields[r'id']):
+                
                 yield trx.commit()
-                self.Return(fields)
-            else:
-                self.Return()
-    
+                
+                result = fields
+        
+        return result
+
     @coroutine
     def login(self, username, password):
+        
+        result = None
         
         with catch_error():
             
             record = yield self._dbs.where(r'account', username=username)
             
             if(not record):
-                self.Return()
+                self.Break()
             
             info = dict(record)
             
             if(info[r'password'] == self.md5(password)):
-                self.Return(info)
-            else:
-                self.Return()
+                result = info
+        
+        return result
 

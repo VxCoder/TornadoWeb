@@ -28,7 +28,7 @@ class AliyunOssClient(BaseModel):
             
             result = self._bucket.sign_url(r'GET', filename, 3600)
         
-        self.Return(result)
+        return result
     
     @coroutine
     def put_file(self, filename, filedata):
@@ -43,7 +43,7 @@ class AliyunOssClient(BaseModel):
             
             result = (response.status == 200)
         
-        self.Return(result)
+        return result
     
     @coroutine
     def del_file(self, filename):
@@ -58,5 +58,5 @@ class AliyunOssClient(BaseModel):
             
             result = (response.status == 204)
             
-        self.Return(result)
+        return result
 
