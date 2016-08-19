@@ -12,20 +12,20 @@ from .struct import Ignore
 
 def singleton(cls):
     
-    _instances = {}
+    __instances = {}
     
-    def _singleton(*args, **kwargs):
+    def __wrapper(*args, **kwargs):
         
-        if cls not in _instances:
-            _instances[cls] = cls(*args, **kwargs)
+        if cls not in __instances:
+            __instances[cls] = cls(*args, **kwargs)
         
-        return _instances[cls]
+        return __instances[cls]
     
-    return _singleton
+    return __wrapper
 
 
 @contextmanager
-def catch_error(callback = None, *args, **kwargs):
+def catch_error(callback=None, *args, **kwargs):
     
     try:
         

@@ -17,6 +17,8 @@ Static.SessionExpires = 1800
 
 Static.AccessControlAllowOrigin = (r'*',)
 
+Static.FuncCacheExpires = 10
+
 ##################################################
 # 线程
 

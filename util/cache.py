@@ -3,9 +3,10 @@
 import config
 
 from tornado.gen import coroutine, Task
+from tornado.concurrent import Future
 from tornado_redis import Client, ConnectionPool
 
-from .decorator import singleton
+from .decorator import singleton, catch_error
 from .util import Utils
 
 
@@ -37,10 +38,18 @@ class MCache(Utils):
             
         self.__client = None
     
-    def key(self, key, *args):
+    def key(self, key, *args, **kwargs):
         
-        if(not args):
+        if(not args or not kwargs):
             return str(key)
+        
+        keys = []
+        
+        if(args):
+            keys.extend(args)
+        
+        if(kwargs):
+            keys.extend(sorted(kwargs.items(), key=lambda x:x[0]))
         
         keys = r'_'.join(str(arg) for arg in args)
         
@@ -94,7 +103,7 @@ class MCache(Utils):
         if(val is None):
             return False
         
-        if(expire == 0):
+        if(expire <= 0):
             expire = self.__expire
         
         val = self.pickle_dumps(val)
@@ -109,7 +118,7 @@ class MCache(Utils):
         if(val is None):
             return False
         
-        if(expire == 0):
+        if(expire <= 0):
             expire = self.__expire
         
         val = self.pickle_dumps(val)
@@ -124,7 +133,7 @@ class MCache(Utils):
         if(val is None):
             return False
         
-        if(expire == 0):
+        if(expire <= 0):
             expire = self.__expire
         
         val = self.pickle_dumps(val)
@@ -219,4 +228,42 @@ class MLock():
     def __del__(self):
         
         self.release()
+
+
+def FuncCache(expire=0):
+    
+    if(expire <= 0):
+        expire = config.Static.FuncCacheExpires
+    
+    cache = MCachePool().get_client()
+    
+    def _wrapper(func):
+        
+        def __wrapper(*args , **kwargs):
+            
+            result = None
+            
+            with catch_error():
+                
+                ckey = cache.key(func, *args, **kwargs)
+                
+                result = yield cache.get(ckey)
+                
+                if(result is None):
+                    
+                    result = func(*args, **kwargs)
+                    
+                    if(isinstance(result, Future)):
+                        result = yield result
+                    
+                    yield cache.set(ckey, result, expire)
+            
+            return result
+        
+        return coroutine(__wrapper)
+    
+    return _wrapper
+
+
+func_cache = FuncCache
 
