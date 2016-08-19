@@ -19,18 +19,16 @@ class BaseModel(Utils):
         # 数据缓存
         self._mc = MCachePool()
         
-        # 数据连接池
-        self._dbm = MySQLPool().master()
-        self._dbs = MySQLPool().slave()
+        # 数据连接
+        self._db = MySQLPool()
     
     def __del__(self):
         
         # 数据缓存
         self._mc = None
         
-        # 数据连接池
-        self._dbm = None
-        self._dbs = None
+        # 数据连接
+        self._db = None
     
     @coroutine
     def fetch_url(self, url, params=None, method=r'GET', headers=None, body=None):
@@ -50,13 +48,21 @@ class BaseModel(Utils):
         
         return result
     
-    def get_cache_client(self):
+    def get_mc_client(self):
         
         class_name = self.md5(self.__class__.__name__)
         
         selected_db = int(class_name, 16) % config.Static.RedisBases
         
         return self._mc.get_client(selected_db)
+    
+    def get_db_client(self, readonly):
+        
+        return self._db.get_client(readonly)
+    
+    def get_db_transaction(self):
+        
+        return self._db.get_transaction()
     
     @staticmethod
     def allocate_lock(*args):

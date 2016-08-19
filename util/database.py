@@ -64,6 +64,11 @@ class SQLQuery():
     
     SQL_LAST_INSERT_ID = r'SELECT last_insert_id() as insert_id;'
     
+    @classmethod
+    def Break(cls, msg=None):
+        
+        raise Ignore(msg)
+    
     def __init__(self, readonly=False):
         
         self._readonly = readonly
@@ -291,59 +296,13 @@ class SQLQuery():
             return 0
 
 
-class DBPool(pools.Pool, SQLQuery):
+class DBPool(pools.Pool):
     
     def __init__(self, connect_kwargs, max_idle_connections=1, max_recycle_sec=3600, max_open_connections=0, io_loop=None, readonly=False):
         
         pools.Pool.__init__(self, connect_kwargs, max_idle_connections, max_recycle_sec, max_open_connections, io_loop)
         
         SQLQuery.__init__(self, readonly)
-    
-    @coroutine
-    def execute(self, query, params=None):
-        
-        app_log.debug(query)
-        
-        result = None
-        
-        try:
-        
-            conn = yield self._get_conn()
-            
-            style = type(query)
-            
-            if(style is str):
-                
-                result = conn.cursor(cursors.DictCursor)
-                
-                yield result.execute(query, params)
-                yield result.close()
-                
-            elif(style in (list, tuple)):
-                
-                result = []
-                
-                for sql in query:
-                    
-                    cursor = conn.cursor(cursors.DictCursor)
-                    result.append(cursor)
-                    
-                    yield cursor.execute(sql, params)
-                    yield cursor.close()
-            
-        except Exception as err:
-            
-            self._close_conn(conn)
-            
-            app_log.error(err)
-            
-            raise err
-        
-        else:
-            
-            self._put_conn(conn)
-            
-        return result
     
     @coroutine
     def begin(self):
@@ -367,12 +326,81 @@ class DBPool(pools.Pool, SQLQuery):
         return result
 
 
-class DBTransaction(pools.Transaction, SQLQuery):
+class DBClient(SQLQuery):
     
-    @classmethod
-    def Break(cls, msg=None):
+    def __init__(self, pool, conn, readonly=False):
         
-        raise Ignore(msg)
+        SQLQuery.__init__(self, readonly)
+        
+        self._pool = pool
+        self._conn = conn
+    
+    def __enter__(self):
+        
+        return self
+    
+    def __exit__(self, *args):
+        
+        self.rollback()
+        
+        if(args[0] is Ignore):
+            
+            return True
+            
+        elif(args[1]):
+            
+            app_log.error(args[1])
+            
+            return True
+    
+    def __del__(self):
+        
+        self._pool._put_conn(self._conn)
+        
+        self._pool = self._conn = None
+    
+    @coroutine
+    def execute(self, query, params=None):
+        
+        app_log.debug(query)
+        
+        result = None
+        
+        try:
+            
+            self._ensure_conn()
+            
+            style = type(query)
+            
+            if(style is str):
+                
+                result = self._conn.cursor(cursors.DictCursor)
+                
+                yield result.execute(query, params)
+                yield result.close()
+                
+            elif(style in (list, tuple)):
+                
+                result = []
+                
+                for sql in query:
+                    
+                    cursor = self._conn.cursor(cursors.DictCursor)
+                    result.append(cursor)
+                    
+                    yield cursor.execute(sql, params)
+                    yield cursor.close()
+            
+        except Exception as err:
+            
+            app_log.error(err)
+            
+            raise err
+            
+        return result
+
+
+class DBTransaction(pools.Transaction, SQLQuery):
     
     def __init__(self, pool, conn, readonly=False):
         
