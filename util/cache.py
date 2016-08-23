@@ -6,7 +6,7 @@ from tornado.gen import coroutine, Task
 from tornado.concurrent import Future
 from tornado_redis import Client, ConnectionPool
 
-from .decorator import singleton, catch_error
+from .decorator import singleton
 from .util import Utils
 
 
@@ -51,10 +51,7 @@ class MCache(Utils):
         if(kwargs):
             keys.extend(sorted(kwargs.items(), key=lambda x:x[0]))
         
-        keys = r'_'.join(str(arg) for arg in args)
-        
-        if(len(keys) > 32):
-            keys = self.md5(keys)
+        keys = self.md5(r'_'.join(str(arg) for arg in args))
         
         return r'_'.join([str(key), keys])
     
@@ -235,28 +232,24 @@ def FuncCache(expire=0):
     if(expire <= 0):
         expire = config.Static.FuncCacheExpires
     
-    cache = MCachePool().get_client()
-    
     def _wrapper(func):
         
         def __wrapper(*args , **kwargs):
             
-            result = None
+            cache = MCachePool().get_client()
             
-            with catch_error():
+            ckey = cache.key(func, *args, **kwargs)
+            
+            result = yield cache.get(ckey)
+            
+            if(result is None):
                 
-                ckey = cache.key(func, *args, **kwargs)
+                result = func(*args, **kwargs)
                 
-                result = yield cache.get(ckey)
+                if(isinstance(result, Future)):
+                    result = yield result
                 
-                if(result is None):
-                    
-                    result = func(*args, **kwargs)
-                    
-                    if(isinstance(result, Future)):
-                        result = yield result
-                    
-                    yield cache.set(ckey, result, expire)
+                yield cache.set(ckey, result, expire)
             
             return result
         

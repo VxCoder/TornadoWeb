@@ -28,15 +28,15 @@ Static.ThreadPoolLimit = 10
 ##################################################
 # 数据库
 
-Static.MySqlMaster = (r'127.0.0.1', 3306)
-Static.MySqlSlave = (r'127.0.0.1', 3306)
+Static.MySqlMaster = (r'localhost', 3306)
+Static.MySqlSlave = (r'localhost', 3306)
 Static.MySqlName = r'demo'
 Static.MySqlUser = r'root'
 Static.MySqlPasswd = r''
 Static.MySqlMaxIdleConn = 32
 Static.MySqlMaxOpenConn = 128
 
-Static.RedisHost = (r'127.0.0.1', 6379)
+Static.RedisHost = (r'localhost', 6379)
 Static.RedisBases = 16
 Static.RedisPasswd = None
 Static.RedisMaxConn = 128

@@ -24,7 +24,9 @@ class AccountModel(BaseModel):
             
             if(cval is None):
                 
-                records = yield self._dbs.select(r'account', limit=100)
+                db_client = yield self.get_db_client(True)
+                
+                records = yield db_client.select(r'account', limit=100)
                 
                 if(records):
                     
@@ -41,7 +43,7 @@ class AccountModel(BaseModel):
         
         result = None
         
-        with (yield self._dbm.begin()) as trx:
+        with (yield self.get_db_transaction()) as trx:
             
             records = yield trx.where(r'account', username=username, rowlock=True)
             
@@ -71,7 +73,9 @@ class AccountModel(BaseModel):
         
         with catch_error():
             
-            record = yield self._dbs.where(r'account', username=username)
+            db_client = yield self.get_db_client(True)
+            
+            record = yield db_client.where(r'account', username=username)
             
             if(not record):
                 self.Break()

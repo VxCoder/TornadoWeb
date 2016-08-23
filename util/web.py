@@ -4,14 +4,13 @@ import config
 
 from io import BytesIO
 
-from tornado.log import app_log
-from tornado.gen import coroutine, Return
+from tornado.gen import coroutine
 from tornado.web import RequestHandler
 from tornado.websocket import WebSocketHandler
 from tornado.concurrent import Future
 
 from .util import Utils
-from .cache import MCache
+from .cache import MCachePool
 from .captcha import Captcha
 from .metaclass import SubclassMetaclass
 
@@ -45,7 +44,7 @@ class RequestBaseHandler(RequestHandler, Utils):
     
     def initialize(self):
         
-        self._cache = MCache()
+        self._cache = MCachePool().get_client()
 
     def options(self, *args, **kwargs):
         
@@ -180,7 +179,7 @@ class RequestBaseHandler(RequestHandler, Utils):
             
             except Exception as error:
                 
-                app_log.warning(r'Invalid application/json body: {0}'.format(error))
+                self.debug(r'Invalid application/json body: {0}'.format(error))
     
     def _generate_captcha(self, width, height, line_num, line_width, font_color, back_color):
         
@@ -438,11 +437,11 @@ class RequestBaseHandler(RequestHandler, Utils):
             
             self._cache.delete(ckey)
             
-            raise Return(True)
+            return True
         
         else:
             
-            raise Return(False)
+            return False
 
 
 class RequestSessHandler(RequestBaseHandler):
@@ -572,10 +571,10 @@ class RequestRbacHandler(RequestSessHandler, metaclass=SubclassMetaclass):
         role = self.rbac_role
         
         if(not role):
-            raise Return(False)
+            return False
         
         if(role == 0xffffffff):
-            raise Return(True)
+            return True
         
         module = self.request_module
         history = self.get_session(r'rbac_hist')
@@ -583,7 +582,7 @@ class RequestRbacHandler(RequestSessHandler, metaclass=SubclassMetaclass):
         if(history):
             
             if(module in history):
-                raise Return(history.get(module))
+                return history.get(module)
         
         else:
             
@@ -597,7 +596,7 @@ class RequestRbacHandler(RequestSessHandler, metaclass=SubclassMetaclass):
         
         self.set_session(r'rbac_hist', history)
         
-        raise Return(result)
+        return result
     
     @property
     def rbac_role(self):

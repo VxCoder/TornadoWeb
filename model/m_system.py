@@ -18,8 +18,11 @@ class SystemModel(BaseModel):
         
         with catch_error():
             
-            records1 = (yield self._dbm.query(r'show processlist')).fetchall()
-            records2 = (yield self._dbs.query(r'show processlist')).fetchall()
+            db_client1 = yield self.get_db_client(True)
+            db_client2 = yield self.get_db_client(False)
+            
+            records1 = (yield db_client1.query(r'show processlist')).fetchall()
+            records2 = (yield db_client2.query(r'show processlist')).fetchall()
             
             db_live = (len(records1) > 0) or (len(records2) > 0)
         

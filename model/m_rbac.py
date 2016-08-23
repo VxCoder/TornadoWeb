@@ -58,7 +58,9 @@ class RbacModel(BaseModel):
             if(cval is not None):
                 return cval
             
-            records = yield self._dbs.select(r'rbac_role')
+            db_client = yield self.get_db_client(True)
+            
+            records = yield db_client.select(r'rbac_role')
             
             if(records is None):
                 return None
@@ -68,7 +70,7 @@ class RbacModel(BaseModel):
             for row in records:
                 role_infos[row[r'id']] = {}
             
-            records = yield self._dbs.select(r'rbac_purview')
+            records = yield db_client.select(r'rbac_purview')
             
             if(records):
                 for row in records:

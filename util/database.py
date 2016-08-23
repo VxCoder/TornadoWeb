@@ -25,37 +25,71 @@ class MySQLPool():
                    r'max_open_connections': config.Static.MySqlMaxOpenConn,
                    }
         
-        self.__mPool = DBPool(
-                              {
-                               r'host':config.Static.MySqlMaster[0],
-                               r'port':config.Static.MySqlMaster[1],
-                               r'user':config.Static.MySqlUser,
-                               r'passwd':config.Static.MySqlPasswd,
-                               r'db':config.Static.MySqlName
-                               },
-                              readonly=False,
-                              **options
-                              )
+        self._m_pool = pools.Pool(
+                                  {
+                                   r'host':config.Static.MySqlMaster[0],
+                                   r'port':config.Static.MySqlMaster[1],
+                                   r'user':config.Static.MySqlUser,
+                                   r'passwd':config.Static.MySqlPasswd,
+                                   r'db':config.Static.MySqlName
+                                   },
+                                  **options
+                                  )
         
-        self.__sPool = DBPool(
-                              {
-                               r'host':config.Static.MySqlSlave[0],
-                               r'port':config.Static.MySqlSlave[1],
-                               r'user':config.Static.MySqlUser,
-                               r'passwd':config.Static.MySqlPasswd,
-                               r'db':config.Static.MySqlName
-                               },
-                              readonly=True,
-                              **options
-                              )
-        
-    def master(self):
-        
-        return self.__mPool
+        self._s_pool = pools.Pool(
+                                  {
+                                   r'host':config.Static.MySqlSlave[0],
+                                   r'port':config.Static.MySqlSlave[1],
+                                   r'user':config.Static.MySqlUser,
+                                   r'passwd':config.Static.MySqlPasswd,
+                                   r'db':config.Static.MySqlName
+                                   },
+                                  **options
+                                  )
     
-    def slave(self):
+    @coroutine
+    def get_client(self, readonly):
         
-        return self.__sPool
+        result = None
+        
+        pool = self._s_pool if readonly else self._m_pool
+        
+        try:
+
+            conn = yield pool._get_conn()
+            
+            result = DBClient(pool, conn, readonly)
+            
+        except Exception as err:
+            
+            pool._close_conn(conn)
+            
+            app_log.error(err)
+            
+        return result
+    
+    @coroutine
+    def get_transaction(self):
+        
+        result = None
+        
+        pool = self._m_pool
+        
+        try:
+        
+            conn = yield pool._get_conn()
+            
+            yield conn.begin()
+            
+            result = DBTransaction(pool, conn)
+            
+        except Exception as err:
+            
+            pool._close_conn(conn)
+            
+            app_log.error(err)
+            
+        return result
 
 
 class SQLQuery():
@@ -296,39 +330,9 @@ class SQLQuery():
             return 0
 
 
-class DBPool(pools.Pool):
-    
-    def __init__(self, connect_kwargs, max_idle_connections=1, max_recycle_sec=3600, max_open_connections=0, io_loop=None, readonly=False):
-        
-        pools.Pool.__init__(self, connect_kwargs, max_idle_connections, max_recycle_sec, max_open_connections, io_loop)
-        
-        SQLQuery.__init__(self, readonly)
-    
-    @coroutine
-    def begin(self):
-        
-        result = None
-        
-        try:
-        
-            conn = yield super()._get_conn()
-            
-            yield conn.begin()
-            
-            result = DBTransaction(self, conn, self.readonly)
-            
-        except Exception as err:
-            
-            self._close_conn(conn)
-            
-            app_log.error(err)
-            
-        return result
-
-
 class DBClient(SQLQuery):
     
-    def __init__(self, pool, conn, readonly=False):
+    def __init__(self, pool, conn, readonly):
         
         SQLQuery.__init__(self, readonly)
         
@@ -341,7 +345,7 @@ class DBClient(SQLQuery):
     
     def __exit__(self, *args):
         
-        self.rollback()
+        self._close()
         
         if(args[0] is Ignore):
             
@@ -355,9 +359,7 @@ class DBClient(SQLQuery):
     
     def __del__(self):
         
-        self._pool._put_conn(self._conn)
-        
-        self._pool = self._conn = None
+        self._close()
     
     @coroutine
     def execute(self, query, params=None):
@@ -367,8 +369,6 @@ class DBClient(SQLQuery):
         result = None
         
         try:
-            
-            self._ensure_conn()
             
             style = type(query)
             
@@ -393,22 +393,30 @@ class DBClient(SQLQuery):
             
         except Exception as err:
             
+            yield self._close()
+            
             app_log.error(err)
             
             raise err
             
         return result
+    
+    def _close(self):
+        
+        if(self._pool and self._conn):
+            
+            self._pool._put_conn(self._conn)
+            
+            self._pool = self._conn = None
 
 
 class DBTransaction(pools.Transaction, SQLQuery):
     
-    def __init__(self, pool, conn, readonly=False):
+    def __init__(self, pool, conn):
         
         pools.Transaction.__init__(self, pool, conn)
         
-        SQLQuery.__init__(self, readonly)
-        
-        self._valid = True
+        SQLQuery.__init__(self, False)
     
     def __enter__(self):
         
@@ -477,9 +485,7 @@ class DBTransaction(pools.Transaction, SQLQuery):
     @coroutine
     def commit(self):
         
-        if(self._valid and self._conn):
-            
-            self._valid = False
+        if(self._pool and self._conn):
             
             yield self._conn.commit()
             
@@ -488,9 +494,7 @@ class DBTransaction(pools.Transaction, SQLQuery):
     @coroutine
     def rollback(self):
         
-        if(self._valid and self._conn):
-            
-            self._valid = False
+        if(self._pool and self._conn):
             
             yield self._conn.rollback()
             

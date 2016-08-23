@@ -30,6 +30,11 @@ class BaseModel(Utils):
         # 数据连接
         self._db = None
     
+    @staticmethod
+    def allocate_lock(*args):
+        
+        return MLock(*args)
+    
     @coroutine
     def fetch_url(self, url, params=None, method=r'GET', headers=None, body=None):
         
@@ -48,7 +53,7 @@ class BaseModel(Utils):
         
         return result
     
-    def get_mc_client(self):
+    def get_cache_client(self):
         
         class_name = self.md5(self.__class__.__name__)
         
@@ -56,16 +61,17 @@ class BaseModel(Utils):
         
         return self._mc.get_client(selected_db)
     
+    @coroutine
     def get_db_client(self, readonly):
         
-        return self._db.get_client(readonly)
+        result = yield self._db.get_client(readonly)
+        
+        return result
     
+    @coroutine
     def get_db_transaction(self):
         
-        return self._db.get_transaction()
-    
-    @staticmethod
-    def allocate_lock(*args):
+        result = yield self._db.get_transaction()
         
-        return MLock(*args)
+        return result
 
